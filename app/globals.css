@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 122 39% 27%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 25% 93%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 122 35% 45%;
+    --accent-foreground: 0 0% 100%;
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 122 39% 27%;
+    --radius: 0.5rem;
+    --gw-forest: 134 61% 21%;
+    --gw-gradient-start: 122 39% 32%;
+    --gw-gradient-end: 122 48% 58%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* Login: infinite leaf rain */
+@keyframes login-leaf-rain {
+  0% {
+    transform: translate3d(0, -18vh, 0) rotate(var(--leaf-base-rot, 0deg));
+    opacity: 0;
+  }
+  5% {
+    opacity: var(--leaf-op, 0.3);
+  }
+  88% {
+    opacity: calc(var(--leaf-op, 0.3) * 0.9);
+  }
+  100% {
+    transform: translate3d(var(--leaf-dx, 0px), 118vh, 0)
+      rotate(calc(var(--leaf-base-rot, 0deg) + 900deg));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-leaf-rain-layer .login-leaf-rain-item {
+    animation: none !important;
+    top: var(--static-top) !important;
+    left: var(--static-left) !important;
+    transform: rotate(var(--leaf-base-rot, 0deg));
+    opacity: var(--leaf-op, 0.3);
+  }
+}
+
+/* Print: cleaner sheet for ID card */
+@media print {
+  body {
+    background: #fff !important;
+  }
+  .member-id-card-root {
+    max-width: 100% !important;
+  }
+  .login-leaf-rain-layer {
+    display: none !important;
+  }
+}
