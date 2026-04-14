@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { sponsorReferralFromSearchParams } from "@/lib/sponsor-from-url";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,10 +31,9 @@ export default function RegisterPage() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const s = searchParams?.get("sponsor");
-    if (s) {
-      setForm((f) => ({ ...f, sponsorReferralId: s }));
-    }
+    const id = sponsorReferralFromSearchParams(searchParams);
+    if (!id) return;
+    setForm((f) => ({ ...f, sponsorReferralId: id }));
   }, [searchParams]);
   const [loading, setLoading] = useState(false);
 
@@ -72,10 +72,11 @@ export default function RegisterPage() {
         <CardHeader>
           <CardTitle>Create account</CardTitle>
           <CardDescription>
-            First account in an empty database becomes the founder (no sponsor).
-            After that, enter your sponsor&apos;s referral ID (e.g.{" "}
-            <code className="text-xs">ROOT000001</code> if you ran{" "}
-            <code className="text-xs">npm run seed</code>).
+            Referral links (e.g.{" "}
+            <code className="text-xs">/register?sponsor=ROOT000001</code>) fill
+            sponsor ID automatically. First signup on an empty database is the
+            founder (no sponsor). Otherwise enter your sponsor&apos;s ID or use
+            their link.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -91,7 +92,10 @@ export default function RegisterPage() {
                 ["email", "Email"],
                 ["phone", "Phone"],
                 ["password", "Password"],
-                ["sponsorReferralId", "Sponsor referral ID (optional if DB empty)"],
+                [
+                  "sponsorReferralId",
+                  "Sponsor referral ID (from link or manual; optional only if DB empty)",
+                ],
               ] as const
             ).map(([k, label]) => (
               <div key={k} className="space-y-1">
