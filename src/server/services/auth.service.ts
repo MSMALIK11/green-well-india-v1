@@ -34,7 +34,7 @@ export async function registerUser(input: {
   assertApp(!exists, 409, "Email or phone already registered");
 
   const userCount = await User.countDocuments();
-  const sponsorCode = (input.sponsorReferralId ?? "").trim().toUpperCase();
+  let sponsorCode = (input.sponsorReferralId ?? "").trim().toUpperCase();
 
   let sponsor: IUser | null = null;
   let ancestorChain: mongoose.Types.ObjectId[] = [];
@@ -53,11 +53,9 @@ export async function registerUser(input: {
     activationStatus = "active";
     kycStatus = "approved";
   } else {
-    assertApp(
-      sponsorCode.length >= 2,
-      400,
-      "Sponsor referral ID is required",
-    );
+    if (sponsorCode.length < 2) {
+      sponsorCode = FOUNDER_REFERRAL;
+    }
     sponsor = await User.findOne({ referralId: sponsorCode });
     assertApp(
       sponsor,

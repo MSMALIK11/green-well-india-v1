@@ -9,13 +9,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -71,13 +65,6 @@ export default function RegisterPage() {
       <Card className="w-full max-w-md border-border">
         <CardHeader>
           <CardTitle>Create account</CardTitle>
-          <CardDescription>
-            Referral links (e.g.{" "}
-            <code className="text-xs">/register?sponsor=ROOT000001</code>) fill
-            sponsor ID automatically. First signup on an empty database is the
-            founder (no sponsor). Otherwise enter your sponsor&apos;s ID or use
-            their link.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-3">
@@ -92,10 +79,7 @@ export default function RegisterPage() {
                 ["email", "Email"],
                 ["phone", "Phone"],
                 ["password", "Password"],
-                [
-                  "sponsorReferralId",
-                  "Sponsor referral ID (from link or manual; optional only if DB empty)",
-                ],
+                ["sponsorReferralId", "Sponsor referral ID (optional)"],
               ] as const
             ).map(([k, label]) => (
               <div key={k} className="space-y-1">
