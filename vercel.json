@@ -1,7 +1,0 @@
-{
-  "functions": {
-    "pages/api/v1/[...path].ts": {
-      "maxDuration": 60
-    }
-  }
-}

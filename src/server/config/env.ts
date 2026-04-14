@@ -150,7 +150,11 @@ export const env = {
   jwtAccessExpires: process.env.JWT_ACCESS_EXPIRES ?? "15m",
   jwtRefreshExpires: process.env.JWT_REFRESH_EXPIRES ?? "7d",
   get clientOrigin() {
-    return process.env.CLIENT_ORIGIN ?? "http://localhost:3000";
+    if (process.env.CLIENT_ORIGIN?.trim()) return process.env.CLIENT_ORIGIN.trim();
+    if (process.env.VERCEL === "1" && process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}`;
+    }
+    return "http://localhost:3000";
   },
   /** Vercel: ephemeral /tmp. For durable KYC files use Blob/S3 later. */
   get uploadDir() {

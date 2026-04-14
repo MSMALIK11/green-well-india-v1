@@ -10,12 +10,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 async function handle(req: NextRequest): Promise<Response> {
-  await connectMongo();
   const method = req.method.toUpperCase();
-  if (method === "OPTIONS") return corsPreflightResponse();
-
-  const effectiveMethod = method === "HEAD" ? "GET" : method;
   try {
+    if (method === "OPTIONS") return corsPreflightResponse();
+
+    await connectMongo();
+    const effectiveMethod = method === "HEAD" ? "GET" : method;
     const res = await routeV1(req, effectiveMethod);
     const out = withCors(res);
     if (method === "HEAD") {
