@@ -3,6 +3,14 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
+export {
+  BRAND_FOREST_DARK,
+  BRAND_LEAF_COLORS,
+  BRAND_LIGHT_GREEN,
+  BRAND_PRIMARY_GREEN,
+  BRAND_PRIMARY_HOVER,
+} from "@/constants/colors";
+
 export const BRAND_LOGO_SRC =
   "https://login.greenwellindia.in/assets/image/logoimage11113.png";
 
@@ -34,6 +42,7 @@ export function BrandLogo({
       height={h}
       className={cn("object-contain", className)}
       priority={priority}
+      style={{ borderRadius: "10px" }}
     />
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { useMemo } from "react";
@@ -113,6 +114,7 @@ export function HomeProductShowcase() {
     queryKey: ["products-public"],
     queryFn: () =>
       apiFetch<{ success: boolean; data: Product[] }>("/api/v1/products/public"),
+    staleTime: 60_000,
   });
 
   const idByKey = useMemo(() => {
@@ -157,13 +159,12 @@ export function HomeProductShowcase() {
                   className={`relative aspect-[4/3] overflow-hidden bg-gradient-to-br ${item.accent}`}
                 >
                   {item.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={item.imageUrl}
                       alt={item.title}
-                      className="h-full w-full bg-white object-contain object-center p-3 transition duration-300 group-hover:scale-[1.02]"
-                      loading="lazy"
-                      decoding="async"
+                      fill
+                      className="bg-white object-contain object-center p-3 transition duration-300 group-hover:scale-[1.02]"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">

@@ -1,14 +1,16 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   flexRender,
   getCoreRowModel,
+  getPaginationRowModel,
   useReactTable,
   type ColumnDef,
+  type PaginationState,
 } from "@tanstack/react-table";
 import { Home, Network, Users } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -31,6 +33,7 @@ import {
   type JoinOpenPayload,
   type TreeNode,
 } from "@/components/team/genealogy-binary-tree";
+import { ACTIVATION_PACKAGE_KEYS } from "@/lib/package-meta";
 
 type TreeApi = {
   success: boolean;
@@ -49,10 +52,14 @@ type MemberRow = {
   name: string;
   referralId: string;
   rank?: string;
+  packageKey?: string | null;
   activationStatus: string;
   createdAt?: string;
   wallets?: { package?: number; activation?: number; shopping?: number };
 };
+
+/** Stable empty ref so `useReactTable` does not get a new `data` array every render while loading. */
+const EMPTY_LEVEL_ROWS: MemberRow[] = [];
 
 const tabs = [
   { id: "genealogy", label: "Genealogy" },
@@ -64,6 +71,25 @@ type TabId = (typeof tabs)[number]["id"];
 
 function formatInr(n: number) {
   return `₹${Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+}
+
+function formatInrDecimal(n: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(n) || 0);
+}
+
+/** Activation package → Tier 1 / 2 / 3 (genealogy level is selected separately). */
+function memberPackageTierLabel(packageKey: string | null | undefined) {
+  if (!packageKey) return "—";
+  const i = ACTIVATION_PACKAGE_KEYS.indexOf(
+    packageKey as (typeof ACTIVATION_PACKAGE_KEYS)[number],
+  );
+  if (i < 0) return "—";
+  return `Tier ${i + 1}`;
 }
 
 function formatJoined(d: string | undefined) {
@@ -106,6 +132,7 @@ function TeamNetworkInner() {
       return apiFetch<TreeApi>(`/api/v1/team/tree?${q.toString()}`);
     },
     enabled: tab === "genealogy",
+    staleTime: 25_000,
   });
 
   const levelsSummaryQuery = useQuery({
@@ -115,12 +142,21 @@ function TeamNetworkInner() {
         "/api/v1/team/levels-summary",
       ),
     enabled: tab === "levels",
+    staleTime: 45_000,
   });
 
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [tierFilter, setTierFilter] = useState<"all" | "active" | "inactive">(
     "all",
   );
+  const [tierPagination, setTierPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+
+  useEffect(() => {
+    setTierPagination((p) => ({ ...p, pageIndex: 0 }));
+  }, [selectedLevel, tierFilter]);
 
   const levelMembersQuery = useQuery({
     queryKey: ["team-level", selectedLevel],
@@ -129,6 +165,7 @@ function TeamNetworkInner() {
         `/api/v1/team/level/${selectedLevel}`,
       ),
     enabled: tab === "levels",
+    staleTime: 30_000,
   });
 
   const directsQuery = useQuery({
@@ -138,13 +175,29 @@ function TeamNetworkInner() {
         "/api/v1/team/directs",
       ),
     enabled: tab === "directs",
+    staleTime: 30_000,
   });
 
+  const allLevelRows = useMemo(
+    () => levelMembersQuery.data?.data ?? EMPTY_LEVEL_ROWS,
+    [levelMembersQuery.data?.data],
+  );
+
   const filteredTierRows = useMemo(() => {
-    const rows = levelMembersQuery.data?.data ?? [];
-    if (tierFilter === "all") return rows;
-    return rows.filter((r) => r.activationStatus === tierFilter);
-  }, [levelMembersQuery.data?.data, tierFilter]);
+    if (tierFilter === "all") return allLevelRows;
+    return allLevelRows.filter((r) => r.activationStatus === tierFilter);
+  }, [allLevelRows, tierFilter]);
+
+  /** Everyone at this genealogy level (referral downline) — for totals. */
+  const tierActivationTotals = useMemo(() => {
+    let active = 0;
+    let inactive = 0;
+    for (const r of allLevelRows) {
+      if (r.activationStatus === "active") active += 1;
+      else inactive += 1;
+    }
+    return { active, inactive, total: allLevelRows.length };
+  }, [allLevelRows]);
 
   const directsColumns = useMemo<ColumnDef<MemberRow>[]>(
     () => [
@@ -204,14 +257,18 @@ function TeamNetworkInner() {
       {
         id: "idx",
         header: "#",
-        cell: ({ row }) => row.index + 1,
+        cell: ({ row, table }) =>
+          row.index +
+          1 +
+          (table.getState().pagination?.pageIndex ?? 0) *
+            (table.getState().pagination?.pageSize ?? 10),
       },
       { accessorKey: "referralId", header: "MEMBER ID" },
       { accessorKey: "name", header: "NAME" },
       {
         id: "tier",
         header: "LEVEL",
-        cell: () => `Tier ${selectedLevel}`,
+        cell: ({ row }) => memberPackageTierLabel(row.original.packageKey),
       },
       {
         accessorKey: "activationStatus",
@@ -243,19 +300,37 @@ function TeamNetworkInner() {
         header: "VOLUME",
         cell: ({ row }) => {
           const w = row.original.wallets;
-          const n = w?.shopping ?? 0;
-          return formatInr(n);
+          const n =
+            (w?.package ?? 0) + (w?.activation ?? 0) + (w?.shopping ?? 0);
+          return (
+            <span className="font-semibold text-gray-900">
+              {formatInrDecimal(n)}
+            </span>
+          );
         },
       },
     ],
-    [selectedLevel],
+    [],
   );
 
   const tierTable = useReactTable({
     data: filteredTierRows,
     columns: tierColumns,
     getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    onPaginationChange: setTierPagination,
+    state: { pagination: tierPagination },
+    initialState: { pagination: { pageSize: 10 } },
   });
+
+  const tierPageCount = tierTable.getPageCount();
+  useEffect(() => {
+    if (tierPageCount <= 0) return;
+    const maxIdx = tierPageCount - 1;
+    if (tierPagination.pageIndex > maxIdx) {
+      setTierPagination((p) => ({ ...p, pageIndex: maxIdx }));
+    }
+  }, [tierPageCount, tierPagination.pageIndex]);
 
   const meta = treeQuery.data?.meta;
   const tree = treeQuery.data?.data;
@@ -263,17 +338,19 @@ function TeamNetworkInner() {
 
   return (
     <div className="space-y-6">
-      <JoinRegisterModal
-        open={joinModal !== null}
-        onOpenChange={(open) => {
-          if (!open) setJoinModal(null);
-        }}
-        sponsorReferralId={joinModal?.sponsorReferralId ?? ""}
-        defaultPosition={joinModal?.slot ?? "left"}
-        onRegistered={() => {
-          treeQuery.refetch();
-        }}
-      />
+      {joinModal !== null ? (
+        <JoinRegisterModal
+          open
+          onOpenChange={(open) => {
+            if (!open) setJoinModal(null);
+          }}
+          sponsorReferralId={joinModal.sponsorReferralId}
+          defaultPosition={joinModal.slot}
+          onRegistered={() => {
+            treeQuery.refetch();
+          }}
+        />
+      ) : null}
 
       <div className="border-b border-[#2E7D32]/25 pb-4">
         <h1 className="flex items-center gap-2 text-xl font-bold text-[#2E7D32] sm:text-2xl">
@@ -344,7 +421,7 @@ function TeamNetworkInner() {
             <p className="text-center text-gray-500">Loading genealogy…</p>
           ) : tree ? (
             <div className="overflow-x-auto pb-4 pt-2">
-              <div className="mx-auto flex min-w-[min(100%,320px)] max-w-4xl flex-col items-center bg-white">
+              <div className="mx-auto flex min-w-[min(100%,320px)] max-w-5xl flex-col items-center bg-white">
                 <GenealogyBinaryTree
                   node={tree}
                   levelsBelow={3}
@@ -404,11 +481,32 @@ function TeamNetworkInner() {
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-sm font-bold text-[#2E7D32]">
-                Tier Records: Level {selectedLevel}
-              </h2>
-              <div className="flex flex-wrap gap-3 text-sm">
+            <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-6">
+              <div className="space-y-1">
+                <h2 className="text-sm font-bold text-[#2E7D32] sm:text-base">
+                  Tier Records: [Level {selectedLevel}]
+                </h2>
+                <p className="text-xs text-gray-600 sm:text-sm">
+                  Members who joined under your referral at this depth.{" "}
+                  <span className="font-semibold text-[#2E7D32]">
+                    Total active: {tierActivationTotals.active}
+                  </span>
+                  <span className="mx-1.5 text-gray-400">·</span>
+                  <span className="font-semibold text-red-700">
+                    Total inactive: {tierActivationTotals.inactive}
+                  </span>
+                  {tierActivationTotals.total > 0 ? (
+                    <span className="text-gray-400">
+                      {" "}
+                      ({tierActivationTotals.total} in level)
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <span className="text-xs font-medium text-gray-500 sm:text-sm">
+                  Filter:
+                </span>
                 {(
                   [
                     ["all", "All"],
@@ -425,7 +523,7 @@ function TeamNetworkInner() {
                       name="tier-filter"
                       checked={tierFilter === id}
                       onChange={() => setTierFilter(id)}
-                      className="accent-[#2E7D32]"
+                      className="h-4 w-4 accent-blue-600"
                     />
                     {label}
                   </label>
@@ -481,6 +579,36 @@ function TeamNetworkInner() {
                 </TableBody>
               </Table>
             </div>
+            {filteredTierRows.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 px-4 py-2.5 text-sm text-gray-600">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2"
+                  disabled={!tierTable.getCanPreviousPage()}
+                  onClick={() => tierTable.previousPage()}
+                >
+                  « Previous
+                </Button>
+                <span className="tabular-nums">
+                  Page {tierPagination.pageIndex + 1}
+                  {tierTable.getPageCount() > 1
+                    ? ` of ${tierTable.getPageCount()}`
+                    : null}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2"
+                  disabled={!tierTable.getCanNextPage()}
+                  onClick={() => tierTable.nextPage()}
+                >
+                  Next »
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

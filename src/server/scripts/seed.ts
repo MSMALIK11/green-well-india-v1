@@ -6,6 +6,12 @@ import { Product } from "../models/Product";
 import { applyWalletChange } from "../services/wallet.service";
 
 const ROOT_REFERRAL = "ROOT000001";
+const ADMIN_REFERRAL = "ADM000001";
+
+/** Default admin login (override with SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD). */
+const SEED_ADMIN_EMAIL =
+  process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase() || "greenwell@gmail.com";
+const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "admin123";
 
 async function seed() {
   await mongoose.connect(env.mongoUri);
@@ -34,15 +40,34 @@ async function seed() {
     console.log("Created root admin", ROOT_REFERRAL);
   }
 
-  let admin = await User.findOne({ email: "admin@mlm-saas.local" });
-  if (!admin) {
-    const passwordHash = await bcrypt.hash("Admin@123", 12);
+  const adminHash = await bcrypt.hash(SEED_ADMIN_PASSWORD, 12);
+  /** Prefer referral id, then legacy seed emails, then current SEED_ADMIN_EMAIL. */
+  let admin =
+    (await User.findOne({ referralId: ADMIN_REFERRAL })) ??
+    (await User.findOne({ email: "admin@mlm-saas.local" })) ??
+    (await User.findOne({ email: "adminz@gmail.com" })) ??
+    (await User.findOne({ email: SEED_ADMIN_EMAIL }));
+
+  if (admin) {
+    await User.updateOne(
+      { _id: admin._id },
+      {
+        $set: {
+          email: SEED_ADMIN_EMAIL,
+          passwordHash: adminHash,
+          role: "admin",
+          refreshTokenHashes: [],
+        },
+      },
+    );
+    console.log("Updated admin login:", SEED_ADMIN_EMAIL);
+  } else {
     admin = await User.create({
       name: "System Admin",
-      email: "admin@mlm-saas.local",
+      email: SEED_ADMIN_EMAIL,
       phone: "9999990001",
-      passwordHash,
-      referralId: "ADM000001",
+      passwordHash: adminHash,
+      referralId: ADMIN_REFERRAL,
       sponsorId: root._id,
       ancestorChain: [root._id as mongoose.Types.ObjectId],
       rank: "Admin",
@@ -54,7 +79,7 @@ async function seed() {
       role: "admin",
       refreshTokenHashes: [],
     });
-    console.log("Created admin under root");
+    console.log("Created admin under root:", SEED_ADMIN_EMAIL);
   }
 
   let demo = await User.findOne({ email: "user@mlm-saas.local" });

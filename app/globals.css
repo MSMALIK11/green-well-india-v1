@@ -64,6 +64,82 @@
   }
 }
 
+/* Register page: leaf rain (matches Green Well LLP reference — top drift + one turn) */
+@keyframes register-ref-leaf-fall {
+  0% {
+    top: -10%;
+    transform: translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    top: 110%;
+    transform: translateX(100px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Same motion mirrored (replaces reference `scaleX(-1)` on .leaf without fighting transform) */
+@keyframes register-ref-leaf-fall-flipped {
+  0% {
+    top: -10%;
+    transform: translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    top: 110%;
+    transform: translateX(-100px) rotate(-360deg);
+    opacity: 0;
+  }
+}
+
+.register-ref-leaf-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.register-ref-leaf {
+  position: absolute;
+  top: -10%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  animation: register-ref-leaf-fall linear infinite;
+  opacity: 0.6;
+  will-change: top, transform, opacity;
+}
+
+.register-ref-leaf--flip {
+  animation-name: register-ref-leaf-fall-flipped;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .register-ref-leaf-layer .register-ref-leaf {
+    animation: none !important;
+    top: var(--ref-static-top, 45%) !important;
+    transform: translateX(0) rotate(var(--ref-static-rot, 0deg)) !important;
+    opacity: 0.45;
+  }
+}
+
 /* Print: cleaner sheet for ID card */
 @media print {
   body {
@@ -73,6 +149,9 @@
     max-width: 100% !important;
   }
   .login-leaf-rain-layer {
+    display: none !important;
+  }
+  .register-ref-leaf-layer {
     display: none !important;
   }
 }

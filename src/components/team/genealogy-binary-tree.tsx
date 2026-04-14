@@ -20,6 +20,8 @@ export type JoinOpenPayload = {
   slot: "left" | "right";
 };
 
+const LINE = "bg-[#D1D5DB]";
+
 function formatVol(n: number | undefined) {
   const x = Number(n ?? 0);
   return x.toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -40,21 +42,23 @@ function MemberCard({
   return (
     <div
       className={cn(
-        "relative w-[200px] shrink-0 overflow-hidden rounded-xl border bg-white shadow-sm",
-        active ? "border-[#2E7D32]/25" : "border-gray-200",
+        "relative w-[200px] shrink-0 overflow-hidden rounded-xl border bg-white",
+        "shadow-sm transition-all duration-200 ease-out",
+        "hover:scale-[1.02] hover:shadow-md hover:shadow-gray-200/80",
+        active ? "border-gray-200" : "border-gray-200",
       )}
     >
       {uplineNav ? (
-        <div className="absolute right-1 top-1 z-10">{uplineNav}</div>
+        <div className="absolute right-2 top-2 z-10">{uplineNav}</div>
       ) : null}
-      <div className="flex flex-col items-center px-3 pb-0 pt-4">
+      <div className="flex flex-col items-center px-3 pb-3 pt-4">
         <div
           className={cn(
-            "flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-white shadow-sm ring-1 ring-gray-100",
-            active ? "bg-[#E8F5E9] text-[#2E7D32]" : "bg-gray-100 text-gray-400",
+            "flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full",
+            active ? "bg-[#2E7D32] text-white" : "bg-gray-300 text-white",
           )}
         >
-          <UserRound className="h-7 w-7" strokeWidth={1.5} />
+          <UserRound className="h-7 w-7" strokeWidth={1.75} />
         </div>
         <div className="mt-3 flex w-full min-w-0 items-center justify-center gap-1.5 px-0.5">
           <span
@@ -71,19 +75,17 @@ function MemberCard({
             {displayName}
           </p>
         </div>
-        <p className="mt-1 font-mono text-xs font-medium text-gray-600">
+        <p className="mt-1 text-center font-mono text-xs font-medium text-gray-500">
           {node.referralId}
         </p>
-      </div>
-      <div className="mt-3 border-t border-gray-100 bg-[#F3F4F6] px-2 py-2">
-        <div className="flex items-center justify-between gap-2 text-[11px] text-gray-600">
-          <span>
+        <div className="mt-3 flex w-full justify-center gap-2">
+          <span className="rounded-full bg-gray-100 px-3 py-1.5 text-center text-[11px] text-gray-600">
             PV{" "}
             <span className="font-semibold tabular-nums text-gray-800">
               {formatVol(pv)}
             </span>
           </span>
-          <span>
+          <span className="rounded-full bg-gray-100 px-3 py-1.5 text-center text-[11px] text-gray-600">
             BV{" "}
             <span className="font-semibold tabular-nums text-gray-800">
               {formatVol(bv)}
@@ -104,27 +106,35 @@ function EmptySlot({
   slot: "left" | "right";
   onJoinOpen?: (p: JoinOpenPayload) => void;
 }) {
+  const open = () => onJoinOpen?.({ sponsorReferralId, slot });
+
   return (
-    <div className="flex w-[200px] shrink-0 flex-col overflow-hidden rounded-xl border-2 border-dashed border-gray-300 bg-[#FAFAFA]">
-      <div className="flex flex-1 flex-col items-center justify-center px-3 py-8 text-center">
+    <div
+      className={cn(
+        "flex w-[200px] shrink-0 flex-col overflow-hidden rounded-xl border-2 border-dashed border-gray-300 bg-white",
+        "shadow-sm transition-all duration-200 ease-out",
+        "hover:scale-[1.02] hover:border-gray-400 hover:shadow-md hover:shadow-gray-200/60",
+      )}
+    >
+      <div className="flex flex-1 flex-col items-center justify-center px-3 py-7 text-center">
         <button
           type="button"
-          onClick={() => onJoinOpen?.({ sponsorReferralId, slot })}
-          className="flex h-12 w-12 items-center justify-center rounded-full border border-[#2E7D32]/30 bg-white text-[#2E7D32] shadow-sm transition hover:bg-[#E8F5E9]"
+          onClick={open}
+          className="flex h-[52px] w-[52px] items-center justify-center rounded-full border-2 border-dashed border-gray-300 bg-transparent text-gray-400 transition hover:border-[#2E7D32]/40 hover:text-[#2E7D32]"
           aria-label="Join in this slot"
         >
-          <Plus className="h-6 w-6" strokeWidth={2.5} />
+          <Plus className="h-7 w-7" strokeWidth={1.75} />
         </button>
         <p className="mt-3 text-xs font-semibold text-gray-500">Empty</p>
         <button
           type="button"
-          onClick={() => onJoinOpen?.({ sponsorReferralId, slot })}
-          className="mt-1 text-xs font-bold text-[#2E7D32] hover:underline"
+          onClick={open}
+          className="mt-0.5 text-xs font-bold text-[#2E7D32] hover:underline"
         >
           Join Now
         </button>
       </div>
-      <div className="border-t border-gray-200 bg-white px-2 py-2 text-center">
+      <div className="border-t border-gray-200 bg-gray-50/80 px-2 py-2 text-center">
         <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
           Open Slot
         </p>
@@ -135,7 +145,7 @@ function EmptySlot({
 
 function BranchPill({ side }: { side: "left" | "right" }) {
   return (
-    <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+    <span className="rounded-md bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-500">
       {side === "left" ? "Left" : "Right"}
     </span>
   );
@@ -155,7 +165,6 @@ export function GenealogyBinaryTree({
   vacancySponsorId: string;
   placementSlot: "left" | "right";
   onJoinOpen?: (p: JoinOpenPayload) => void;
-  /** Only true on the outermost call — upline chevron sits on root card */
   isRoot?: boolean;
   uplineNav?: ReactNode;
 }) {
@@ -181,26 +190,27 @@ export function GenealogyBinaryTree({
 
       {levelsBelow > 0 ? (
         <div className="flex w-full flex-col items-center">
-          {/* Stem from card to junction */}
-          <div className="h-8 w-px shrink-0 bg-[#D1D5DB]" aria-hidden />
+          <div className={cn("h-8 w-px shrink-0", LINE)} aria-hidden />
 
-          <div className="relative w-full min-w-[280px] max-w-[560px] px-2 sm:px-4">
-            {/* Horizontal bar between leg centers */}
+          <div className="relative w-full min-w-[280px] max-w-[580px] px-2 sm:px-4">
             <div
-              className="pointer-events-none absolute left-[25%] right-[25%] top-0 h-px bg-[#D1D5DB] sm:left-[26%] sm:right-[26%]"
+              className={cn(
+                "pointer-events-none absolute left-[25%] right-[25%] top-0 h-px sm:left-[26%] sm:right-[26%]",
+                LINE,
+              )}
               aria-hidden
             />
 
             <div className="grid grid-cols-2 gap-4 sm:gap-10 lg:gap-16">
               <div className="flex flex-col items-center">
                 <div
-                  className="h-6 w-px shrink-0 bg-[#D1D5DB] -translate-y-px"
+                  className={cn("h-6 w-px shrink-0 -translate-y-px", LINE)}
                   aria-hidden
                 />
                 <div className="mt-2">
                   <BranchPill side="left" />
                 </div>
-                <div className="h-4 w-px shrink-0 bg-[#D1D5DB]" aria-hidden />
+                <div className={cn("h-4 w-px shrink-0", LINE)} aria-hidden />
                 <GenealogyBinaryTree
                   node={left}
                   levelsBelow={levelsBelow - 1}
@@ -212,13 +222,13 @@ export function GenealogyBinaryTree({
 
               <div className="flex flex-col items-center">
                 <div
-                  className="h-6 w-px shrink-0 bg-[#D1D5DB] -translate-y-px"
+                  className={cn("h-6 w-px shrink-0 -translate-y-px", LINE)}
                   aria-hidden
                 />
                 <div className="mt-2">
                   <BranchPill side="right" />
                 </div>
-                <div className="h-4 w-px shrink-0 bg-[#D1D5DB]" aria-hidden />
+                <div className={cn("h-4 w-px shrink-0", LINE)} aria-hidden />
                 <GenealogyBinaryTree
                   node={right}
                   levelsBelow={levelsBelow - 1}
@@ -249,7 +259,7 @@ export function ParentNavButton({
     <button
       type="button"
       onClick={() => onNavigate(parentReferralId)}
-      className="flex h-8 w-8 items-center justify-center rounded-full border border-[#2E7D32]/35 bg-white text-[#2E7D32] shadow-md ring-1 ring-black/5 transition hover:bg-[#E8F5E9]"
+      className="flex h-8 w-8 items-center justify-center rounded-full border border-[#2E7D32]/40 bg-white text-[#2E7D32] shadow-sm transition hover:bg-[#E8F5E9]"
       title="View upline"
     >
       <ChevronUp className="h-4 w-4" strokeWidth={2.5} />

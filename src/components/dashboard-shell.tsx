@@ -130,6 +130,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       apiFetch<{ success: boolean; user: Record<string, unknown> }>(
         "/api/v1/auth/me",
       ),
+    staleTime: 60_000,
     retry: false,
   });
 

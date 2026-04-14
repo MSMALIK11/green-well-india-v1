@@ -34,6 +34,7 @@ type ProductLike = {
   stock: number;
   price: number;
   name: string;
+  description?: string;
 };
 
 /** One row per official tier; picks a single catalog product per tier (highest stock first). */

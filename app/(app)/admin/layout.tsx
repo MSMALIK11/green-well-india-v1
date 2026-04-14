@@ -12,6 +12,7 @@ const links = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/products", label: "Products" },
+  { href: "/admin/activation-plans", label: "Activation plans" },
   { href: "/admin/commissions", label: "Commissions" },
   { href: "/admin/marketing", label: "Marketing" },
   { href: "/admin/kyc", label: "KYC" },

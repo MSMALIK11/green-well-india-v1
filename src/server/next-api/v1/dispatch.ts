@@ -14,6 +14,13 @@ import {
   MARKETING_CONFIG_KEY,
 } from "@/server/models/MarketingConfig";
 import {
+  createActivationPlan,
+  deleteActivationPlan,
+  listActivationPlansAdmin,
+  listActivationPlansPublic,
+  updateActivationPlan,
+} from "@/server/services/activation-plan.service";
+import {
   issueTokensForUser,
   loginUser,
   logoutUser,
@@ -133,10 +140,22 @@ async function dispatchAuth(
 
   if (m === "POST" && rest[0] === "login" && rest.length === 1) {
     const body = z
-      .object({ email: z.string().email(), password: z.string().min(1) })
+      .object({
+        userId: z.string().max(32).optional(),
+        referralId: z.string().max(32).optional(),
+        password: z.string().min(1),
+      })
+      .refine(
+        (d) =>
+          String(d.userId ?? d.referralId ?? "")
+            .trim()
+            .length > 0,
+        { message: "User ID is required", path: ["userId"] },
+      )
       .parse(await readJsonBody(req));
+    const id = String(body.userId ?? body.referralId ?? "").trim();
     const { user, accessToken, refreshToken } = await loginUser(
-      body.email,
+      id,
       body.password,
     );
     const base = json({
@@ -485,6 +504,65 @@ async function dispatchAdminProducts(
   return notFound();
 }
 
+const activationPlanBody = z.object({
+  name: z.string().min(1),
+  slug: z.string().min(1),
+  description: z.string().optional(),
+  packageKey: z.enum(["BASIC_4999", "STANDARD_9999", "PREMIUM_24999"]),
+  sortOrder: z.coerce.number().int().optional(),
+  active: z.boolean().optional(),
+});
+
+async function dispatchAdminActivationPlans(
+  req: NextRequest,
+  m: string,
+  rest: string[],
+  role: string,
+): Promise<Response> {
+  requireAdmin(role);
+
+  if (m === "GET" && rest.length === 0) {
+    const data = await listActivationPlansAdmin();
+    return json({ success: true, data });
+  }
+
+  if (m === "POST" && rest.length === 0) {
+    const body = activationPlanBody.parse(await readJsonBody(req));
+    const plan = await createActivationPlan({
+      name: body.name,
+      slug: body.slug,
+      description: body.description,
+      packageKey: body.packageKey,
+      sortOrder: body.sortOrder,
+      active: body.active,
+    });
+    return json({ success: true, plan }, { status: 201 });
+  }
+
+  if (m === "PATCH" && rest.length === 1) {
+    const id = z.string().parse(rest[0]);
+    const body = activationPlanBody.partial().parse(await readJsonBody(req));
+    const patch: Parameters<typeof updateActivationPlan>[1] = {};
+    if (body.name !== undefined) patch.name = body.name;
+    if (body.slug !== undefined) patch.slug = body.slug;
+    if (body.description !== undefined) patch.description = body.description;
+    if (body.packageKey !== undefined) patch.packageKey = body.packageKey;
+    if (body.sortOrder !== undefined) patch.sortOrder = body.sortOrder;
+    if (body.active !== undefined) patch.active = body.active;
+    const plan = await updateActivationPlan(id, patch);
+    if (!plan) return json({ success: false, error: "Not found" }, { status: 404 });
+    return json({ success: true, plan });
+  }
+
+  if (m === "DELETE" && rest.length === 1) {
+    const id = z.string().parse(rest[0]);
+    await deleteActivationPlan(id);
+    return json({ success: true });
+  }
+
+  return notFound();
+}
+
 const commissionBandRowSchema = z.object({
   t0: z.coerce.number().int().min(0).max(1_000_000_000),
   t1: z.coerce.number().int().min(0).max(1_000_000_000),
@@ -501,6 +579,10 @@ async function dispatchAdmin(
 
   if (rest[0] === "products") {
     return dispatchAdminProducts(req, m, rest.slice(1), ctx.role);
+  }
+
+  if (rest[0] === "activation-plans") {
+    return dispatchAdminActivationPlans(req, m, rest.slice(1), ctx.role);
   }
 
   if (rest[0] === "kyc") {
@@ -979,6 +1061,10 @@ async function dispatchMarketing(
   m: string,
   rest: string[],
 ): Promise<Response> {
+  if (m === "GET" && rest[0] === "activation-plans" && rest.length === 1) {
+    const data = await listActivationPlansPublic();
+    return json({ success: true, data });
+  }
   if (m === "GET" && rest[0] === "hero" && rest.length === 1) {
     let doc = await MarketingConfig.findOne({ key: MARKETING_CONFIG_KEY });
     if (!doc) {

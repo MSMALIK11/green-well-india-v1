@@ -42,6 +42,29 @@ type Product = {
   active?: boolean;
 };
 
+/** Product snapshot for checkout (catalog). */
+type ActivationProductSnapshot = {
+  _id: string;
+  name: string;
+  description?: string;
+  price: number;
+  packageKey: string | null;
+  stock: number;
+  imageUrl?: string;
+  active?: boolean;
+};
+
+/** One selectable row on Activate ID (one catalog pick per official tier). */
+type ActivationCheckoutRow = {
+  key: string;
+  checkoutProductId: string | null;
+  packageKey: string;
+  labelLine: string;
+  description?: string;
+  planAmount: number;
+  product: ActivationProductSnapshot | null;
+};
+
 type MeUser = {
   _id: string;
   name: string;
@@ -181,10 +204,18 @@ export function ProductsHub() {
     enabled: tab === "activate",
   });
 
-  const activationPlans = useMemo(
-    () => buildActivationPlanRows(productsQuery.data?.data ?? []),
-    [productsQuery.data?.data],
-  );
+  const activationCheckoutRows = useMemo((): ActivationCheckoutRow[] => {
+    const built = buildActivationPlanRows(productsQuery.data?.data ?? []);
+    return built.map((r) => ({
+      key: r.packageKey,
+      checkoutProductId: r.product?._id ?? null,
+      packageKey: r.packageKey,
+      labelLine: `${r.planLabel} — ${formatInr(r.product?.price ?? r.canonicalPrice)} · ${r.pv} PV`,
+      description: r.product?.description,
+      planAmount: r.product?.price ?? r.canonicalPrice,
+      product: r.product,
+    }));
+  }, [productsQuery.data?.data]);
 
   const addToCart = useCallback((id: string, qty = 1) => {
     setCart((c) => ({
@@ -248,7 +279,8 @@ export function ProductsHub() {
         <ActivateTab
           user={meQuery.data?.user}
           wallets={walletsQuery.data?.wallets}
-          activationPlans={activationPlans}
+          rows={activationCheckoutRows}
+          catalogLoading={productsQuery.isPending}
           ledger={ledgerQuery.data?.data ?? []}
           loadingUser={meQuery.isPending}
           loadingWallets={walletsQuery.isPending}
@@ -408,7 +440,8 @@ function StoreTab({
 function ActivateTab({
   user,
   wallets,
-  activationPlans,
+  rows,
+  catalogLoading,
   ledger,
   loadingUser,
   loadingWallets,
@@ -416,7 +449,8 @@ function ActivateTab({
 }: {
   user?: MeUser;
   wallets?: Wallets;
-  activationPlans: ReturnType<typeof buildActivationPlanRows>;
+  rows: ActivationCheckoutRow[];
+  catalogLoading: boolean;
   ledger: {
     amount: number;
     direction: string;
@@ -429,29 +463,32 @@ function ActivateTab({
   loadingWallets: boolean;
   onSuccess: () => void;
 }) {
-  const [planId, setPlanId] = useState("");
+  const [selectedKey, setSelectedKey] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
-  const selectedRow = activationPlans.find((r) => r.product?._id === planId);
-  const planAmount = selectedRow?.product?.price ?? 0;
+  const selectedRow = rows.find((r) => r.key === selectedKey);
+  const planAmount = selectedRow?.planAmount ?? 0;
+  const checkoutProductId = selectedRow?.checkoutProductId ?? null;
 
-  const availableTiers = activationPlans.filter((r) => r.product).length;
+  const availableTiers = rows.filter((r) => r.checkoutProductId).length;
 
   useEffect(() => {
-    if (!planId) return;
-    const stillValid = activationPlans.some((r) => r.product?._id === planId);
-    if (!stillValid) setPlanId("");
-  }, [activationPlans, planId]);
+    if (!selectedKey) return;
+    const stillValid = rows.some((r) => r.key === selectedKey);
+    if (!stillValid) setSelectedKey("");
+  }, [rows, selectedKey]);
 
   const activateMut = useMutation({
     mutationFn: async () => {
-      if (!planId || !selectedRow?.product) throw new Error("Select a plan");
+      if (!checkoutProductId || !selectedRow?.product) {
+        throw new Error("Select a plan");
+      }
       const order = await apiFetch<{ success: boolean; order: { _id: string } }>(
         "/api/v1/orders",
         {
           method: "POST",
           body: JSON.stringify({
-            items: [{ productId: planId, quantity: 1 }],
+            items: [{ productId: checkoutProductId, quantity: 1 }],
             status: "pending",
           }),
         },
@@ -462,7 +499,7 @@ function ActivateTab({
     },
     onSuccess: () => {
       setErr(null);
-      setPlanId("");
+      setSelectedKey("");
       onSuccess();
     },
     onError: (e: Error) => setErr(e.message),
@@ -501,7 +538,7 @@ function ActivateTab({
           ) : null}
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-          {loadingUser || loadingWallets ? (
+          {loadingUser || loadingWallets || catalogLoading ? (
             <Loader2 className="h-8 w-8 animate-spin text-[#2E7D32]" />
           ) : (
             <div className="grid gap-5 sm:grid-cols-2">
@@ -536,25 +573,19 @@ function ActivateTab({
                   value={user?.name ?? "—"}
                 />
               </Field>
-              <Field label="Select Plan (activation tiers only)">
+              <Field label="Select plan">
                 <select
                   className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2E7D32]/40"
-                  value={planId}
-                  onChange={(e) => setPlanId(e.target.value)}
+                  value={selectedKey}
+                  onChange={(e) => setSelectedKey(e.target.value)}
                 >
                   <option value="">— Please Select Plan —</option>
-                  {activationPlans.map((row) => {
-                    const p = row.product;
-                    const price = p?.price ?? row.canonicalPrice;
-                    const label = `${row.planLabel} — ${formatInr(price)} · ${row.pv} PV`;
+                  {rows.map((row) => {
+                    const disabled = !row.checkoutProductId;
                     return (
-                      <option
-                        key={row.packageKey}
-                        value={p?._id ?? ""}
-                        disabled={!p}
-                      >
-                        {label}
-                        {!p ? " — not stocked" : ""}
+                      <option key={row.key} value={row.key} disabled={disabled}>
+                        {row.labelLine}
+                        {disabled ? " — not stocked" : ""}
                       </option>
                     );
                   })}
@@ -574,18 +605,20 @@ function ActivateTab({
                   <span className="font-medium text-gray-700">
                     {selectedRow.product.name}
                   </span>
+                  {selectedRow.description ? (
+                    <span className="mt-1 block text-gray-600">
+                      {selectedRow.description}
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
             </div>
           )}
           {availableTiers === 0 ? (
             <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-              No activation products are available. In{" "}
-              <strong>Admin → Products</strong>, create or enable one product per
-              tier: <strong>Basic</strong> (BASIC_4999), <strong>Smart</strong>{" "}
-              (STANDARD_9999), <strong>Prime</strong> (PREMIUM_24999), with stock
-              &gt; 0. Retail items without a package tier stay in the store only
-              and do not appear here.
+              No in-stock catalog products for activation tiers. In{" "}
+              <strong>Admin → Products</strong>, add items with package tier
+              BASIC_4999, STANDARD_9999, or PREMIUM_24999 with available stock.
             </p>
           ) : null}
           {err ? (
@@ -593,7 +626,7 @@ function ActivateTab({
               {err}
             </p>
           ) : null}
-          {planId && planAmount > 0 ? (
+          {selectedKey && planAmount > 0 ? (
             <WalletVsOrderBanner
               shopping={wallets?.shopping ?? 0}
               orderTotal={planAmount}
@@ -604,7 +637,7 @@ function ActivateTab({
             className="mt-6 rounded-xl bg-[#2E7D32] px-8 hover:bg-[#256628]"
             disabled={
               activateMut.isPending ||
-              !planId ||
+              !checkoutProductId ||
               planAmount > (wallets?.shopping ?? 0)
             }
             onClick={() => activateMut.mutate()}
@@ -619,9 +652,10 @@ function ActivateTab({
             )}
           </Button>
           <p className="mt-3 text-xs text-gray-500">
-            Paid from shopping wallet only. This list is always the three
-            official tiers (Basic / Smart / Prime), not general store products.
-            ₹10,000 covers Basic or Smart; Prime needs ₹24,999.
+            Paid from shopping wallet only. Plans are configured in{" "}
+            <strong>Admin → Activation plans</strong> (or the three default tiers
+            when none apply). Each plan still maps to an official package tier for
+            PV and commissions.
           </p>
         </div>
       </section>

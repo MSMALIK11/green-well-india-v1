@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { DashboardStatTile } from "@/components/dashboard/dashboard-stat-tile";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -56,34 +57,11 @@ function formatDate(iso: unknown): string {
   });
 }
 
-function StatTile({
-  label,
-  value,
-  subValue,
-}: {
-  label: string;
-  value: ReactNode;
-  subValue?: ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
-      <div className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
-        {value}
-      </div>
-      {subValue ? (
-        <div className="mt-0.5 text-xs text-slate-500">{subValue}</div>
-      ) : null}
-    </div>
-  );
-}
-
 export default function DashboardPage() {
   const { data } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: () => apiFetch<Summary>("/api/v1/dashboard/summary"),
+    staleTime: 45_000,
   });
 
   const [progressMode, setProgressMode] = useState<"pt5" | "all">("pt5");
@@ -201,53 +179,53 @@ export default function DashboardPage() {
 
       {/* Metrics */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile
+        <DashboardStatTile
           label="Total income"
           value={`₹${(data?.income.total ?? 0).toFixed(2)}`}
         />
-        <StatTile
+        <DashboardStatTile
           label="Level income"
           value={`₹${(data?.income.level ?? 0).toFixed(2)}`}
         />
-        <StatTile
+        <DashboardStatTile
           label="LBD income"
           value={`₹${(data?.income.lbd ?? 0).toFixed(2)}`}
         />
-        <StatTile
+        <DashboardStatTile
           label="Reward income"
           value={`₹${(data?.income.reward ?? 0).toFixed(2)}`}
         />
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile
+        <DashboardStatTile
           label="Total team"
           value={data?.team.totalCount ?? 0}
         />
-        <StatTile
+        <DashboardStatTile
           label="Total team business"
           value={`${data?.business.totalPv ?? 0} PV`}
         />
-        <StatTile
+        <DashboardStatTile
           label="Today team business"
           value="0 PV"
         />
-        <StatTile
+        <DashboardStatTile
           label="Today PV business"
           value="0 PV"
         />
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <StatTile
+        <DashboardStatTile
           label="Package wallet"
           value={Math.round(data?.wallets.package ?? 0)}
         />
-        <StatTile
+        <DashboardStatTile
           label="Activation wallet"
           value={Math.round(data?.wallets.activation ?? 0)}
         />
-        <StatTile
+        <DashboardStatTile
           label="Shopping wallet"
           value={Math.round(data?.wallets.shopping ?? 0)}
         />

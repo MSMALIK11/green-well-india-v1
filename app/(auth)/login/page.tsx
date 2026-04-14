@@ -7,6 +7,7 @@ import { Eye, EyeOff, Leaf, Lock, User } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 /**
@@ -211,15 +212,13 @@ export default function LoginPage() {
   const router = useRouter();
   const search = useSearchParams();
   const setUser = useAuthStore((s) => s.setUser);
-  const [email, setEmail] = useState("");
+  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
     setLoading(true);
     try {
       const res = await apiFetch<{
@@ -236,13 +235,13 @@ export default function LoginPage() {
         };
       }>("/api/v1/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ userId: userId.trim(), password }),
       });
       setUser(res.user);
       router.push(search?.get("next") || "/dashboard");
       router.refresh();
     } catch (e) {
-      setErr((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -294,22 +293,11 @@ export default function LoginPage() {
               Welcome Back!
             </h2>
             <p className="mt-2 text-center text-sm text-[#6B7280]">
-              Please sign in to your account
-            </p>
-            <p className="mt-1 text-center text-xs text-[#9CA3AF]">
-              Use your registered email as User ID (e.g. seed: user@mlm-saas.local)
+              Sign in with your <strong>User ID</strong> (same as your referral code)
+              and password.
             </p>
 
             <form onSubmit={onSubmit} className="mt-8 space-y-5">
-              {err ? (
-                <p
-                  className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
-                  role="alert"
-                >
-                  {err}
-                </p>
-              ) : null}
-
               <div>
                 <label className="sr-only" htmlFor="userId">
                   User ID
@@ -321,12 +309,13 @@ export default function LoginPage() {
                   />
                   <input
                     id="userId"
-                    type="email"
-                    autoComplete="email"
+                    type="text"
+                    inputMode="text"
+                    autoComplete="username"
                     required
-                    placeholder="User ID"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="User ID (same as referral code)"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
                     className="h-12 w-full rounded-xl border border-[#E5E7EB] bg-white pl-11 pr-4 text-sm text-gray-800 placeholder:text-[#9CA3AF] focus:border-[#2E7D32] focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/25"
                   />
                 </div>

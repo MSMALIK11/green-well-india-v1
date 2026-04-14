@@ -13,9 +13,15 @@ import { AppError, assertApp } from "../utils/errors";
 const SALT_ROUNDS = 12;
 const MAX_REFRESH = 10;
 
-function generateReferralId(): string {
-  const n = Math.floor(100000 + Math.random() * 900000);
-  return `GW${n}`;
+/** New members get a 5-digit numeric ID (also used as sponsor / referral code). */
+async function allocateMemberReferralId(): Promise<string> {
+  for (let i = 0; i < 100; i++) {
+    const n = Math.floor(10000 + Math.random() * 90000);
+    const referralId = String(n);
+    const clash = await User.findOne({ referralId });
+    if (!clash) return referralId;
+  }
+  throw new AppError(500, "Could not allocate user ID");
 }
 
 const FOUNDER_REFERRAL = "ROOT000001";
@@ -68,12 +74,7 @@ export async function registerUser(input: {
     );
     ancestorChain = [sponsorId, ...sponsorAncestors].slice(0, 20);
 
-    referralId = generateReferralId();
-    for (let i = 0; i < 5; i++) {
-      const clash = await User.findOne({ referralId });
-      if (!clash) break;
-      referralId = generateReferralId();
-    }
+    referralId = await allocateMemberReferralId();
 
     const placement = input.binaryPlacement ?? null;
     if (placement) {
@@ -117,10 +118,12 @@ export async function registerUser(input: {
 }
 
 export async function loginUser(
-  email: string,
+  userId: string,
   password: string,
 ): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
-  const user = await User.findOne({ email: email.toLowerCase().trim() });
+  const normalized = userId.trim().toUpperCase();
+  assertApp(normalized.length > 0, 401, "Invalid credentials");
+  const user = await User.findOne({ referralId: normalized });
   assertApp(user, 401, "Invalid credentials");
   const ok = await bcrypt.compare(password, user.passwordHash);
   assertApp(ok, 401, "Invalid credentials");
