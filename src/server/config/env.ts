@@ -3,9 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-/** Next apps in this monorepo that share this env loader. */
-const APP_PACKAGE_NAMES = new Set(["greenwell-fullstack", "mlm-saas-web"]);
+/** Next apps that share this env loader (monorepo frontend + standalone Green Well copy). */
+const APP_PACKAGE_NAMES = new Set(["mlm-saas-web", "greenwell-fullstack"]);
 
+/**
+ * Walk parents from `start` until `package.json` matches an app in `APP_PACKAGE_NAMES`.
+ */
 function findPackageRoot(start: string): string | null {
   let dir = path.resolve(start);
   for (let i = 0; i < 28; i++) {
@@ -27,6 +30,7 @@ function findPackageRoot(start: string): string | null {
   return null;
 }
 
+/** Ordered, deduped candidate paths for monorepo `backend/.env`. */
 function backendEnvPathsToTry(): string[] {
   const ordered: string[] = [];
   const seen = new Set<string>();
@@ -104,6 +108,7 @@ function resolveProjectRoot(): string {
 
 const projectRoot = resolveProjectRoot();
 
+/** Do not use `@next/env` `loadEnvConfig` here — it can drop vars that only exist in `../backend/.env`. */
 for (const p of backendEnvPathsToTry()) {
   if (fs.existsSync(p)) {
     dotenv.config({ path: p });
@@ -124,8 +129,8 @@ function required(name: string): string {
   if (!v) {
     const tried = backendEnvPathsToTry().filter((p) => fs.existsSync(p));
     throw new Error(
-      `Missing env: ${name}. Set it in .env.local (this app) or ../backend/.env ` +
-        `(app root: ${projectRoot}; backend .env files found: ${
+      `Missing env: ${name}. Set it in .env.local at the app root or in a sibling backend/.env ` +
+        `(app root: ${projectRoot}; found backend env files: ${
           tried.length ? tried.join(", ") : "none"
         }).`,
     );
@@ -147,6 +152,7 @@ export const env = {
   get clientOrigin() {
     return process.env.CLIENT_ORIGIN ?? "http://localhost:3000";
   },
+  /** Vercel: ephemeral /tmp. For durable KYC files use Blob/S3 later. */
   get uploadDir() {
     if (process.env.VERCEL === "1") {
       return "/tmp/mlm-uploads";
